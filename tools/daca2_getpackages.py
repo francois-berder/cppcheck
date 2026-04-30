@@ -26,13 +26,15 @@ def wget(filepath):
     if '/' in filepath:
         filename = filename[filename.rfind('/') + 1:]
     for d in DEBIAN_PACKAGES_SERVER:
-        # TODO: handle exitcode?
-        subprocess.call(
-            ['nice', 'wget', '--tries=10', '--timeout=300', '-O', filename, urljoin(d, filepath)])
+        try:
+            subprocess.check_call(
+                ['nice', 'wget', '--tries=10', '--timeout=300', '-O', filename, urljoin(d, filepath)])
+        except subprocess.CalledProcessError:
+            print('Sleep for 10 seconds..')
+            time.sleep(10)
+            continue
         if os.path.isfile(filename):
             return True
-        print('Sleep for 10 seconds..')
-        time.sleep(10)
     return False
 
 
@@ -43,15 +45,11 @@ def latestvername(names):
 
 def getpackages():
     if not wget('ls-lR.gz'):
-        return []
-    # TODO: handle exitcode?
-    subprocess.call(['nice', 'gunzip', 'ls-lR.gz'])
-    if not os.path.isfile('ls-lR'):
-        return []
+        raise RuntimeError('Failed to download list of packages.')
+    subprocess.check_call(['nice', 'gunzip', 'ls-lR.gz'])
     with open('ls-lR', 'rt') as f:
         lines = f.readlines()
-    # TODO: handle exitcode?
-    subprocess.call(['rm', 'ls-lR'])
+    os.remove('ls-lR')
 
     # Example content in ls-lR:
     #./pool/main/0/0xffff:
@@ -122,8 +120,10 @@ def getpackages():
 
 
 if __name__ == '__main__':
-    packages = getpackages()
-    if not packages:
+    try:
+        packages = getpackages()
+    except RuntimeError as e:
+        print(e)
         sys.exit(1)
     for p in packages:
         print(p)

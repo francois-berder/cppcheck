@@ -47,7 +47,11 @@ if __name__ == "__main__":
         args.packages = glob.glob(os.path.join(args.packages_path, '*.tar.xz'))
         random.shuffle(args.packages)
     elif args.packages is None:
-        args.packages = getpackages()
+        try:
+            args.packages = getpackages()
+        except (RuntimeError, subprocess.CalledProcessError) as e:
+            print(e)
+            sys.exit(1)
         random.shuffle(args.packages)
 
     packages_to_process = min(args.max_packages, len(args.packages))

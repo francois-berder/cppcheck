@@ -100,14 +100,11 @@ def downloadpackage(filepath, outpath, accept_proto: bool = False):
 
     filename = filepath[filepath.rfind('/') + 1:]
     if filename[-3:] == '.gz':
-        # TODO: handle exitcode?
-        subprocess.call(['tar', 'xzf', filename])
+        subprocess.check_call(['tar', 'xzf', filename])
     elif filename[-3:] == '.xz':
-        # TODO: handle exitcode?
-        subprocess.call(['tar', 'xJf', filename])
+        subprocess.check_call(['tar', 'xJf', filename])
     elif filename[-4:] == '.bz2':
-        # TODO: handle exitcode?
-        subprocess.call(['tar', 'xjf', filename])
+        subprocess.check_call(['tar', 'xjf', filename])
     else:
         return
 
@@ -115,8 +112,7 @@ def downloadpackage(filepath, outpath, accept_proto: bool = False):
 
     for g in glob.glob('[#_A-Za-z0-9]*'):
         if os.path.isdir(g):
-            # TODO: handle exitcode?
-            subprocess.call(['tar', '-cJf', outpath + filename[:filename.rfind('.')] + '.xz', g])
+            subprocess.check_call(['tar', '-cJf', outpath + filename[:filename.rfind('.')] + '.xz', g])
             break
 
 
@@ -130,9 +126,10 @@ if __name__ == '__main__':
         os.makedirs(workdir)
     os.chdir(workdir)
 
-    packages = getpackages()
-    if len(packages) == 0:
-        print('failed to load packages')
+    try:
+        packages = getpackages()
+    except (RuntimeError, subprocess.CalledProcessError) as e:
+        print(e)
         sys.exit(1)
 
     print('Sleep for 10 seconds..')
