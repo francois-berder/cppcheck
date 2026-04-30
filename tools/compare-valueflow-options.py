@@ -96,7 +96,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
     if args.packages_path:
-        # You can download packages using daca2-download.py
+        # You can download packages using daca2_download.py
         args.packages = glob.glob(os.path.join(args.packages_path, '*.tar.xz'))
         args.p = len(args.packages)
         packages_idxs = list(range(args.p))

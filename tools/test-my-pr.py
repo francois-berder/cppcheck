@@ -8,114 +8,18 @@
 import donate_cpu_lib as lib
 import argparse
 import glob
-import gzip
-import natsort
 import os
 import sys
 import random
-import re
-import requests
 import subprocess
+
+from daca2_getpackages import getpackages
 
 
 def format_float(a, b=1):
     if a > 0 and b > 0:
         return '{:.2f}'.format(a / b)
     return 'N/A'
-
-
-def ftp_get(url):
-    try:
-        response = requests.get(url, timeout=300)
-        response.raise_for_status()
-        return response.content
-    except requests.RequestException as err:
-        print('Failed to fetch {}: {}'.format(url, err))
-    return None
-
-
-def latestvername(names):
-    s = natsort.natsorted(names, key=lambda x: x[x.index('_')+1:x.index('.orig.tar')])
-    return s[-1]
-
-
-def getpackages():
-    debian = 'https://ftp.debian.org/debian/'
-
-    data = ftp_get(debian + 'ls-lR.gz')
-    if data is None:
-        print('Failed to fetch ls-lR.gz')
-        sys.exit(1)
-
-    lines = gzip.decompress(data).decode('utf-8', errors='replace').splitlines()
-
-    # Example content in ls-lR:
-    #./pool/main/0/0xffff:
-    #total 1452
-    #-rw-r--r-- 2 dak debadmin  6524 Dec 25  2016 0xffff_0.7-2.debian.tar.xz
-    #-rw-r--r-- 2 dak debadmin  1791 Dec 25  2016 0xffff_0.7-2.dsc
-    #-rw-r--r-- 2 dak debadmin 57168 Dec 25  2016 0xffff_0.7-2_amd64.deb
-    #-rw-r--r-- 2 dak debadmin 48578 Dec 26  2016 0xffff_0.7-2_arm64.deb
-    #-rw-r--r-- 2 dak debadmin 56730 Dec 26  2016 0xffff_0.7-2_armel.deb
-    #-rw-r--r-- 2 dak debadmin 57296 Dec 26  2016 0xffff_0.7-2_armhf.deb
-    #-rw-r--r-- 2 dak debadmin 60254 Dec 26  2016 0xffff_0.7-2_i386.deb
-    #-rw-r--r-- 2 dak debadmin 53130 Dec 26  2016 0xffff_0.7-2_mips.deb
-    #-rw-r--r-- 2 dak debadmin 52542 Dec 26  2016 0xffff_0.7-2_mips64el.deb
-    #-rw-r--r-- 2 dak debadmin 53712 Dec 26  2016 0xffff_0.7-2_mipsel.deb
-    #-rw-r--r-- 2 dak debadmin 51908 Dec 26  2016 0xffff_0.7-2_ppc64el.deb
-    #-rw-r--r-- 2 dak debadmin 53548 Dec 26  2016 0xffff_0.7-2_s390x.deb
-    #-rw-r--r-- 2 dak debadmin 65248 Dec 25  2016 0xffff_0.7.orig.tar.gz
-    #-rw-r--r-- 2 dak debadmin  6884 Jul 19 19:08 0xffff_0.8-1.debian.tar.xz
-    #-rw-r--r-- 2 dak debadmin  1807 Jul 19 19:08 0xffff_0.8-1.dsc
-    #-rw-r--r-- 2 dak debadmin 58908 Jul 19 19:08 0xffff_0.8-1_amd64.deb
-    #-rw-r--r-- 2 dak debadmin 51340 Jul 19 19:58 0xffff_0.8-1_arm64.deb
-    #-rw-r--r-- 2 dak debadmin 57612 Jul 19 20:13 0xffff_0.8-1_armel.deb
-    #-rw-r--r-- 2 dak debadmin 58584 Jul 19 19:58 0xffff_0.8-1_armhf.deb
-    #-rw-r--r-- 2 dak debadmin 57544 Jul 19 20:23 0xffff_0.8-1_hurd-i386.deb
-    #-rw-r--r-- 2 dak debadmin 62048 Jul 19 23:54 0xffff_0.8-1_i386.deb
-    #-rw-r--r-- 2 dak debadmin 55080 Jul 23 19:07 0xffff_0.8-1_kfreebsd-amd64.deb
-    #-rw-r--r-- 2 dak debadmin 58392 Jul 23 19:07 0xffff_0.8-1_kfreebsd-i386.deb
-    #-rw-r--r-- 2 dak debadmin 54144 Jul 19 22:28 0xffff_0.8-1_mips.deb
-    #-rw-r--r-- 2 dak debadmin 53648 Jul 20 00:56 0xffff_0.8-1_mips64el.deb
-    #-rw-r--r-- 2 dak debadmin 54740 Jul 19 22:58 0xffff_0.8-1_mipsel.deb
-    #-rw-r--r-- 2 dak debadmin 57424 Jul 19 19:58 0xffff_0.8-1_ppc64el.deb
-    #-rw-r--r-- 2 dak debadmin 53764 Jul 19 22:28 0xffff_0.8-1_s390x.deb
-    #-rw-r--r-- 2 dak debadmin 64504 Jul 19 19:08 0xffff_0.8.orig.tar.gz
-    #
-
-    path = None
-    previous_path = ''
-    archives = []
-    filename = None
-    filenames = []
-    for line in lines:
-        line = line.strip()
-        if len(line) < 4:
-            if filename:
-                res1 = re.match(r'(.*)-[0-9.]+$', path)
-                if res1 is None:
-                    res1 = re.match(r'(.*)[-.][0-9.]+$', path)
-                res2 = re.match(r'(.*)-[0-9.]+$', previous_path)
-                if res2 is None:
-                    res2 = re.match(r'(.*)[-.][0-9.]+$', previous_path)
-                if res1 is None or res2 is None or res1.group(1) != res2.group(1):
-                    archives.append(path + '/' + latestvername(filenames))
-                else:
-                    archives[-1] = path + '/' + latestvername(filenames)
-            if path:
-                previous_path = path
-            path = None
-            filename = None
-            filenames = []
-        elif line.startswith('./pool/main/'):
-            path = debian + line[2:-1]
-        elif path and line.endswith(('.orig.tar.gz', '.orig.tar.bz2', '.orig.tar.xz')):
-            filename = line[1 + line.rfind(' '):]
-            filenames.append(filename)
-
-    return archives
-
-
 
 
 if __name__ == "__main__":
@@ -139,7 +43,7 @@ if __name__ == "__main__":
     print(args)
 
     if args.packages_path:
-        # You can download packages using daca2-download.py
+        # You can download packages using daca2_download.py
         args.packages = glob.glob(os.path.join(args.packages_path, '*.tar.xz'))
         random.shuffle(args.packages)
     elif args.packages is None:
@@ -215,19 +119,20 @@ if __name__ == "__main__":
     timeouts = []
 
     while packages_processed < packages_to_process and args.packages:
-        package = args.packages.pop()
+        package_url = args.packages.pop()
+        package_name = package_url[package_url.rfind('/') + 1:]
         packages_processed += 1
         print('Processing package {} of {}'.format(packages_processed, packages_to_process))
 
 
-        if package.startswith('ftp://') or package.startswith('https://'):
-            tgz = lib.download_package(work_path, package, None)
+        if package_url.startswith('ftp://') or package_url.startswith('https://'):
+            tgz = lib.download_package(work_path, package_url, None)
             if tgz is None:
                 print("No package downloaded")
                 continue
         else:
-            print('Package: ' + package)
-            tgz = package
+            print('Package: ' + package_name)
+            tgz = package_url
 
         source_path, source_found = lib.unpack_package(work_path, tgz, c_only=args.c_only, cpp_only=args.cpp_only)
         if not source_found:
@@ -277,7 +182,7 @@ if __name__ == "__main__":
                 who = 'Main'
             else:
                 who = 'Your'
-            crashes.append(package + ' ' + who)
+            crashes.append(package_name + ' ' + who)
 
         if main_timeout or your_timeout:
             who = None
@@ -287,10 +192,10 @@ if __name__ == "__main__":
                 who = 'Main'
             else:
                 who = 'Your'
-            timeouts.append(package + ' ' + who)
+            timeouts.append(package_name + ' ' + who)
 
         with open(result_file, 'a') as myfile:
-            myfile.write(package + '\n')
+            myfile.write(package_name + '\n')
             diff = lib.diff_results('main', results_to_diff[0], 'your', results_to_diff[1])
             if not main_crashed and not your_crashed and diff != '':
                 myfile.write('libraries:' + ','.join(libraries) +'\n')
@@ -299,7 +204,7 @@ if __name__ == "__main__":
         if not main_crashed and not your_crashed:
             with open(timing_file, 'a') as myfile:
                 myfile.write('{:{package_width}} {:{timing_width}} {:{timing_width}} {:{timing_width}}\n'.format(
-                    package, format_float(time_main),
+                    package_name, format_float(time_main),
                     format_float(time_your), format_float(time_your, time_main),
                     package_width=package_width, timing_width=timing_width))
 

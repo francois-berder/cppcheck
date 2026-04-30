@@ -3,70 +3,19 @@
 # Downloads all daca2 source code packages.
 #
 # Usage:
-# $ ./daca2-download.py
+# $ ./daca2_download.py
 
 
-import subprocess
-import sys
-import shutil
+import argparse
 import glob
 import os
+import shutil
+import subprocess
+import sys
 import time
-import natsort
 
-DEBIAN = ('ftp://ftp.se.debian.org/debian/',
-          'ftp://ftp.debian.org/debian/')
-
-
-def wget(filepath):
-    filename = filepath
-    if '/' in filepath:
-        filename = filename[filename.rfind('/') + 1:]
-    for d in DEBIAN:
-        # TODO: handle exitcode?
-        subprocess.call(
-            ['nice', 'wget', '--tries=10', '--timeout=300', '-O', filename, d + filepath])
-        if os.path.isfile(filename):
-            return True
-        print('Sleep for 10 seconds..')
-        time.sleep(10)
-    return False
-
-
-def latestvername(names):
-    s = natsort.natsorted(names, key=lambda x: x[x.index('_')+1:x.index('.orig.tar')])
-    return s[-1]
-
-
-def getpackages():
-    if not wget('ls-lR.gz'):
-        return []
-    # TODO: handle exitcode?
-    subprocess.call(['nice', 'gunzip', 'ls-lR.gz'])
-    with open('ls-lR', 'rt') as f:
-        lines = f.readlines()
-    # TODO: handle exitcode?
-    subprocess.call(['rm', 'ls-lR'])
-
-    path = None
-    archives = []
-    filename = None
-    filenames = []
-    for line in lines:
-        line = line.strip()
-        if len(line) < 4:
-            if filename:
-                archives.append(path + '/' + latestvername(filenames))
-            path = None
-            filename = None
-            filenames = []
-        elif line[:12] == './pool/main/':
-            path = line[2:-1]
-        elif path and '.orig.tar.' in line:
-            filename = line[1 + line.rfind(' '):]
-            filenames.append(filename)
-
-    return archives
+from daca2_getpackages import getpackages
+import donate_cpu_lib as lib
 
 
 def handleRemoveReadonly(func, path, exc):
@@ -141,11 +90,11 @@ def removeLargeFiles(path):
                 os.remove(g)
 
 
-def downloadpackage(filepath, outpath):
+def downloadpackage(filepath, outpath, accept_proto: bool = False):
     # remove all files/folders
     removeAll()
 
-    if not wget(filepath):
+    if not lib.download_package('.', filepath, None):
         print('Failed to download ' + filepath)
         return
 
@@ -170,21 +119,29 @@ def downloadpackage(filepath, outpath):
             subprocess.call(['tar', '-cJf', outpath + filename[:filename.rfind('.')] + '.xz', g])
             break
 
-workdir = os.path.expanduser('~/daca2-packages/tmp/')
-if not os.path.isdir(workdir):
-    os.makedirs(workdir)
-os.chdir(workdir)
 
-packages = getpackages()
-if len(packages) == 0:
-    print('failed to load packages')
-    sys.exit(1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Downloads all daca2 source code packages.')
+    parser.add_argument('--outdir', default='~/daca2-packages/', help='output directory for downloaded packages')
+    args = parser.parse_args()
 
-print('Sleep for 10 seconds..')
-time.sleep(10)
+    workdir = os.path.expanduser(os.path.join(args.outdir, 'tmp/'))
+    if not os.path.isdir(workdir):
+        os.makedirs(workdir)
+    os.chdir(workdir)
 
-for package in packages:
-    downloadpackage(package, os.path.expanduser('~/daca2-packages/'))
+    packages = getpackages()
+    if len(packages) == 0:
+        print('failed to load packages')
+        sys.exit(1)
 
-# remove all files/folders
-removeAll()
+    print('Sleep for 10 seconds..')
+    time.sleep(10)
+
+    for package in packages:
+        downloadpackage(package, os.path.expanduser(args.outdir))
+
+    # remove all files/folders
+    removeAll()
+
+

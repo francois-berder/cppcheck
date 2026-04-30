@@ -5,28 +5,30 @@
 # Usage:
 #
 # cd cppcheck/tools
-# ./daca2-getpackages.py
+# ./daca2_getpackages.py
 #
 
 
-import subprocess
-import sys
 import os
 import re
+import subprocess
+import sys
 import time
-import natsort
 
-DEBIAN = ('ftp://ftp.de.debian.org/debian/',
+import natsort
+from urllib.parse import urljoin
+
+DEBIAN_PACKAGES_SERVER = ('ftp://ftp.de.debian.org/debian/',
           'ftp://ftp.debian.org/debian/')
 
 def wget(filepath):
     filename = filepath
     if '/' in filepath:
         filename = filename[filename.rfind('/') + 1:]
-    for d in DEBIAN:
+    for d in DEBIAN_PACKAGES_SERVER:
         # TODO: handle exitcode?
         subprocess.call(
-            ['nice', 'wget', '--tries=10', '--timeout=300', '-O', filename, d + filepath])
+            ['nice', 'wget', '--tries=10', '--timeout=300', '-O', filename, urljoin(d, filepath)])
         if os.path.isfile(filename):
             return True
         print('Sleep for 10 seconds..')
@@ -41,11 +43,11 @@ def latestvername(names):
 
 def getpackages():
     if not wget('ls-lR.gz'):
-        sys.exit(1)
+        return []
     # TODO: handle exitcode?
     subprocess.call(['nice', 'gunzip', 'ls-lR.gz'])
     if not os.path.isfile('ls-lR'):
-        sys.exit(1)
+        return []
     with open('ls-lR', 'rt') as f:
         lines = f.readlines()
     # TODO: handle exitcode?
@@ -115,10 +117,13 @@ def getpackages():
             filename = line[1 + line.rfind(' '):]
             filenames.append(filename)
 
-    return archives
+    return [DEBIAN_PACKAGES_SERVER[0] + archive for archive in archives]
 
 
 
-for p in getpackages():
-    print(DEBIAN[0] + p)
-
+if __name__ == '__main__':
+    packages = getpackages()
+    if not packages:
+        sys.exit(1)
+    for p in packages:
+        print(p)

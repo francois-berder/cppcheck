@@ -22,7 +22,7 @@ fi
 
 if [ ! -f "${dacaathome_path}/packages.txt" ]
 then
-    "${cppcheck_tools_path}/daca2-getpackages.py" > "${dacaathome_path}/packages.txt"
+    "${cppcheck_tools_path}/daca2_getpackages.py" > "${dacaathome_path}/packages.txt"
 fi
 
 while :
