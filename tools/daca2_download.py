@@ -132,9 +132,6 @@ if __name__ == '__main__':
         print(e)
         sys.exit(1)
 
-    print('Sleep for 10 seconds..')
-    time.sleep(10)
-
     for package in packages:
         downloadpackage(package, os.path.expanduser(args.outdir), args.protobuf)
 
