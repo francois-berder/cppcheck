@@ -10,6 +10,7 @@ import argparse
 import glob
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -19,7 +20,6 @@ import donate_cpu_lib as lib
 
 
 def handleRemoveReadonly(func, path, exc):
-    import stat
     if not os.access(path, os.W_OK):
         # Is the error an access error ?
         os.chmod(path, stat.S_IWUSR)
