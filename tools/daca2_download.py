@@ -60,25 +60,24 @@ def removeAll():
         count = 0
 
 
-def accept_filename(filename:str):
+def accept_filename(filename:str, accept_proto: bool = False):
     if '.' not in filename:
         return False
     ext = filename[filename.rfind('.'):]
-    if ext == '.proto' and ('--protobuf' in sys.argv):
-        print('accept_filename:' + filename)
+    if ext == '.proto' and accept_proto:
         return True
     return ext in ('.C', '.c', '.H', '.h', '.cc',
                    '.cpp', '.cxx', '.c++', '.hpp', '.tpp', '.t++')
 
 
-def removeLargeFiles(path):
+def removeLargeFiles(path, accept_proto: bool = False):
     for g in glob.glob(path + '*'):
         if g == '.' or g == '..':
             continue
         if os.path.islink(g):
             continue
         if os.path.isdir(g):
-            removeLargeFiles(g + '/')
+            removeLargeFiles(g + '/', accept_proto)
         elif os.path.isfile(g):
             # remove large files
             statinfo = os.stat(g)
@@ -86,7 +85,7 @@ def removeLargeFiles(path):
                 os.remove(g)
 
             # remove non-source files
-            elif not accept_filename(g):
+            elif not accept_filename(g, accept_proto):
                 os.remove(g)
 
 
@@ -99,26 +98,27 @@ def downloadpackage(filepath, outpath, accept_proto: bool = False):
         return
 
     filename = filepath[filepath.rfind('/') + 1:]
-    if filename[-3:] == '.gz':
+    if filename.endswith('.gz'):
         subprocess.check_call(['tar', 'xzf', filename])
-    elif filename[-3:] == '.xz':
+    elif filename.endswith('.xz'):
         subprocess.check_call(['tar', 'xJf', filename])
-    elif filename[-4:] == '.bz2':
+    elif filename.endswith('.bz2'):
         subprocess.check_call(['tar', 'xjf', filename])
     else:
         return
 
-    removeLargeFiles('')
+    removeLargeFiles('', accept_proto)
 
     for g in glob.glob('[#_A-Za-z0-9]*'):
         if os.path.isdir(g):
-            subprocess.check_call(['tar', '-cJf', outpath + filename[:filename.rfind('.')] + '.xz', g])
+            subprocess.check_call(['tar', '-cJf', os.path.join(outpath, filename[:filename.rfind('.')] + '.xz'), g])
             break
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Downloads all daca2 source code packages.')
     parser.add_argument('--outdir', default='~/daca2-packages/', help='output directory for downloaded packages')
+    parser.add_argument('--protobuf', action='store_true', help='also download .proto files')
     args = parser.parse_args()
 
     workdir = os.path.expanduser(os.path.join(args.outdir, 'tmp/'))
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     time.sleep(10)
 
     for package in packages:
-        downloadpackage(package, os.path.expanduser(args.outdir))
+        downloadpackage(package, os.path.expanduser(args.outdir), args.protobuf)
 
     # remove all files/folders
     removeAll()
