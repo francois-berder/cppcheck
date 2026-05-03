@@ -27,7 +27,7 @@ if __name__ == "__main__":
     __work_path = os.path.expanduser(os.path.join('~', 'cppcheck-' + __my_script_name + '-workfolder'))
 
     parser = argparse.ArgumentParser(description='Run this script from your branch with proposed Cppcheck patch to verify your patch against current main. It will compare output of testing bunch of opensource packages')
-    parser.add_argument('-j', default=1, type=int, help='Concurency execution threads')
+    parser.add_argument('-j', default=1, type=int, help='Concurrency execution threads')
     parser.add_argument('-n', '--max-packages', default=256, type=int, help='Maximum number of packages to test')
     package_group = parser.add_mutually_exclusive_group()
     package_group.add_argument('--packages', nargs='+', help='Check specific packages and then stop.')
