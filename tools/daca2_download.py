@@ -71,22 +71,13 @@ def accept_filename(filename:str, accept_proto: bool = False):
 
 
 def removeLargeFiles(path, accept_proto: bool = False):
-    for g in glob.glob(path + '*'):
-        if g == '.' or g == '..':
-            continue
-        if os.path.islink(g):
-            continue
-        if os.path.isdir(g):
-            removeLargeFiles(g + '/', accept_proto)
-        elif os.path.isfile(g):
-            # remove large files
-            statinfo = os.stat(g)
-            if statinfo.st_size > 100000:
-                os.remove(g)
-
-            # remove non-source files
-            elif not accept_filename(g, accept_proto):
-                os.remove(g)
+    for dirpath, _, filenames in os.walk(path):
+        for name in filenames:
+            p = os.path.join(dirpath, name)
+            if os.path.islink(p):
+                continue
+            if os.stat(p).st_size > 100000 or not accept_filename(name, accept_proto):
+                os.remove(p)
 
 
 def downloadpackage(filepath, outpath, accept_proto: bool = False):
@@ -107,7 +98,7 @@ def downloadpackage(filepath, outpath, accept_proto: bool = False):
     else:
         return
 
-    removeLargeFiles('', accept_proto)
+    removeLargeFiles('.', accept_proto)
 
     for g in glob.glob('[#_A-Za-z0-9]*'):
         if os.path.isdir(g):
